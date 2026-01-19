@@ -23,6 +23,10 @@ This repo demonstrates an end-to-end workflow:
 - Enforcement funnel (warn → throttle → block) at both infra + account levels
 - Reproducible SQL queries + exported artifacts + investigation report
 
+- **CASE-OSINT-0001 — CVE-2025-12420 (BodySnatcher / ServiceNow agentic AI auth weakness)**  
+  OSINT-to-hunting translation: affected/fixed versions, ATT&CK mapping, behavior-based hunts (user creation + role grants correlated to Virtual Agent / Now Assist sessions), and an intel report summarizing the trust-boundary failure patterns.
+
+
 ### Core Deliverables
 
 - **DuckDB SQL investigation pack** (`sql/`) - 11 queries for detecting coordination patterns
