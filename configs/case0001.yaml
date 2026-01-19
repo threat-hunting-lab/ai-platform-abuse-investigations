@@ -1,0 +1,188 @@
+﻿meta:
+  case_id: CASE-0001
+  case_name: Coordinated Influence (Synthetic)
+  notes: >
+    Fully synthetic dataset for public demo. No real orgs, agencies, or NYC-related references.
+
+generation:
+  seed: 1337
+  total_rows: 1000000
+  output_dir: datasets/output
+  time_range_utc:
+    start: "2025-12-01T00:00:00Z"
+    end:   "2025-12-08T00:00:00Z"
+
+entities:
+  orgs:
+    count: 60
+    id_prefix: "org_"
+    size_distribution:
+      small: 0.60
+      medium: 0.30
+      large: 0.10
+
+  accounts:
+    count: 8000
+    id_prefix: "acct_"
+    accounts_per_org:
+      small_range: [30, 110]
+      medium_range: [90, 220]
+      large_range: [180, 520]
+
+  devices:
+    count: 12000
+    id_prefix: "dev_"
+    mix:
+      normal: 0.90
+      suspicious: 0.10
+    suspicious_device_traits:
+      headless_rate: 0.55
+      webdriver_rate: 0.40
+      low_entropy_ua_rate: 0.35
+
+infra:
+  asn_pool_sizes:
+    residential: 120
+    corporate: 60
+    hosting: 120
+    vpn: 90
+
+  baseline_asn_type_probs:
+    residential: 0.70
+    corporate: 0.18
+    hosting: 0.07
+    vpn: 0.05
+
+  provider_brand_buckets:
+    residential_isp: ["res_isp_a", "res_isp_b", "res_isp_c", "res_isp_d"]
+    enterprise_egress: ["corp_egress_a", "corp_egress_b"]
+    cloud_datacenter: ["cloud_a", "cloud_b", "cloud_c"]
+    vps_hosting: ["vps_a", "vps_b", "vps_c"]
+    vpn_service: ["vpn_a", "vpn_b", "vpn_c", "vpn_d"]
+
+models:
+  model_names: ["model_a", "model_b", "model_c"]
+  baseline_model_probs:
+    model_a: 0.55
+    model_b: 0.35
+    model_c: 0.10
+
+telemetry_schema:
+  language_fields:
+    # requested: Portuguese, Spanish, Russian, French, German (dual field)
+    baseline_primary_language_probs:
+      en: 0.55
+      pt: 0.12
+      es: 0.12
+      ru: 0.08
+      fr: 0.07
+      de: 0.06
+
+    baseline_ui_language_probs:
+      en: 0.62
+      pt: 0.10
+      es: 0.10
+      ru: 0.07
+      fr: 0.06
+      de: 0.05
+
+content:
+  topic_buckets: ["public_services_community", "civics", "local_events", "public_health", "policy_discussion"]
+  baseline_topic_probs:
+    public_services_community: 0.40
+    civics: 0.20
+    local_events: 0.15
+    public_health: 0.15
+    policy_discussion: 0.10
+
+  content_clusters:
+    count: 10
+    id_prefix: "CT-"
+
+  templates:
+    count: 10
+    id_prefix: "T-"
+
+moderation:
+  baseline_action_probs:
+    allow: 0.975
+    warn: 0.020
+    block: 0.005
+
+  campaign_action_probs:
+    allow: 0.940
+    warn: 0.045
+    block: 0.015
+
+rate_limits:
+  enabled: true
+  baseline_rate_limit_prob: 0.0008
+  campaign_rate_limit_prob: 0.010
+  enforcement_actions: ["throttle", "temporary_block"]
+  enforcement_action_probs:
+    throttle: 0.80
+    temporary_block: 0.20
+
+sessions:
+  enabled: true
+
+osint:
+  enabled: true
+  platform_buckets: ["social_a", "forum_a", "video_a", "messaging_a"]
+  confidence_probs:
+    low: 0.60
+    medium: 0.30
+    high: 0.10
+  observation_rate_per_cluster: 0.35
+
+campaigns:
+  - campaign_id: CAMP-COORD-001
+    enabled: true
+    share_of_rows: 0.08
+    coordination:
+      orgs_touched_min: 12
+      orgs_touched_max: 28
+      accounts_touched_min: 120
+      accounts_touched_max: 380
+      device_reuse_rate: 0.22
+
+    infra_bias:
+      # concentrated on hosting/vpn + selected buckets
+      asn_type_probs:
+        hosting: 0.62
+        vpn: 0.28
+        residential: 0.10
+
+      provider_bucket_focus: ["cloud_a", "vps_a", "vpn_a", "vpn_b"]
+      provider_focus_strength: 0.85
+
+    similarity:
+      focus_top_k_clusters: 3
+      template_reuse_rate: 0.75
+
+    timing:
+      bucket_minutes: 15
+      waves:
+        - start_offset_hours: 6
+          duration_minutes: 120
+        - start_offset_hours: 30
+          duration_minutes: 180
+        - start_offset_hours: 96
+          duration_minutes: 150
+
+    # campaign language skew: same language set as requested
+    target_languages_primary_probs:
+      en: 0.35
+      pt: 0.18
+      es: 0.18
+      ru: 0.12
+      fr: 0.10
+      de: 0.07
+
+    target_ui_languages_probs:
+      en: 0.40
+      pt: 0.16
+      es: 0.16
+      ru: 0.11
+      fr: 0.10
+      de: 0.07

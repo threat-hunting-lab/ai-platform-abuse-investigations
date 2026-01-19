@@ -1,0 +1,19 @@
+# Virtual env / caches
+.venv/
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Local datasets + DB outputs
+datasets/output/
+*.parquet
+*.duckdb
+ai_abuse.duckdb
+
+# Case outputs (generated artifacts)
+case_studies/**/artifacts/
+case_studies/**/findings.json
+case_studies/**/scoring.json
+case_studies/**/REPORT.md
+case_studies/**/report.md
+datasets/output/**
