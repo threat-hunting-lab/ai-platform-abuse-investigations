@@ -269,6 +269,11 @@ def build_dimension_tables(cfg: Dict[str, Any], rng: random.Random) -> Dict[str,
     enrichment_ip = pa.Table.from_pylist(asn_rows)
     out["enrichment_ip"] = enrichment_ip
 
+    # Defensive: ensure enrichment has rows
+    enr_row_count = enrichment_ip.num_rows if hasattr(enrichment_ip, 'num_rows') else len(enrichment_ip)
+    if enr_row_count == 0:
+        raise RuntimeError("enrichment_ip table has 0 rows - cannot proceed")
+
     # Optional sessions / osint placeholders will be created later if enabled
     return out
 
@@ -511,6 +516,9 @@ def main() -> None:
         ("org_id", pa.string()),
         ("start_ts", pa.timestamp("us", tz="UTC")),
         ("auth_strength", pa.string()),
+        ("ip", pa.string()),
+        ("asn", pa.int64()),
+        ("device_fingerprint", pa.string()),
     ])
 
     osint_schema = pa.schema([
@@ -528,25 +536,6 @@ def main() -> None:
     rl_path = out_dir / "rate_limit_events.parquet"
     sess_path = out_dir / "sessions.parquet"
     osint_path = out_dir / "osint_observations.parquet"
-
-    # Create session ids if enabled (small table, per-account-ish)
-    if sess_enabled:
-        auth_strengths = ["low", "medium", "strong"]
-        sess_rows = []
-        # 1 session for ~55% of accounts, plus some extra for campaign accounts
-        for acct in account_ids:
-            if rng.random() < 0.55 or (plan.enabled and acct in plan.account_ids and rng.random() < 0.80):
-                sid = f"sess_{uuid.uuid4().hex[:16]}"
-                org = account_org_map.get(acct, rng.choice(org_ids))
-                s_ts = start - timedelta(hours=rng.randint(0, 24), minutes=rng.randint(0, 59))
-                sess_rows.append({
-                    "session_id": sid,
-                    "account_id": acct,
-                    "org_id": org,
-                    "start_ts": s_ts,
-                    "auth_strength": rng.choice(auth_strengths),
-                })
-        write_parquet(sess_path, pa.Table.from_pylist(sess_rows).cast(sess_schema))
 
     # Create OSINT obs if enabled (small, keyed to content clusters)
     if osint_enabled:
@@ -566,7 +555,8 @@ def main() -> None:
                     "confidence_bucket": choose_weighted(rng, conf_probs),
                     "notes": "Synthetic non-sensitive corroboration keyed to content_cluster_id.",
                 })
-        write_parquet(osint_path, pa.Table.from_pylist(os_rows).cast(osint_schema))
+        if os_rows:  # Only write if we have data
+            write_parquet(osint_path, pa.Table.from_pylist(os_rows).cast(osint_schema))
 
     # Helper: pick an ASN with campaign concentration
     infra_baseline_probs = dict(cfg["infra"]["baseline_asn_type_probs"])
@@ -590,6 +580,48 @@ def main() -> None:
         if cand:
             return rng.choice(cand), t
         return rng.choice(asns), "residential"
+
+    # Create session ids if enabled (small table, per-account-ish)
+    # NOW that pick_asn is defined, we can use it
+    if sess_enabled:
+        auth_strengths = ["low", "medium", "strong"]
+        sess_rows = []
+        # 1 session for ~55% of accounts, plus some extra for campaign accounts
+        for acct in account_ids:
+            if rng.random() < 0.55 or (plan.enabled and acct in plan.account_ids and rng.random() < 0.80):
+                sid = f"sess_{uuid.uuid4().hex[:16]}"
+                org = account_org_map.get(acct, rng.choice(org_ids))
+                s_ts = start - timedelta(hours=rng.randint(0, 24), minutes=rng.randint(0, 59))
+                
+                # Pick infrastructure for this session
+                chosen_asn, _ = pick_asn(False)  # baseline distribution for sessions
+                try:
+                    idx = asns.index(chosen_asn)
+                except ValueError:
+                    # Fallback: chosen_asn not in list (shouldn't happen, but defensive)
+                    idx = rng.randint(0, len(asns) - 1) if asns else 0
+                # Clamp idx to valid enrichment range
+                enr_row_count = enr.num_rows if hasattr(enr, 'num_rows') else len(enr)
+                idx = max(0, min(idx, enr_row_count - 1))
+                s_ip = str(enr["ip"][idx].as_py())
+                
+                # Pick a device for this session
+                if device_ids:
+                    s_device = rng.choice(device_ids)
+                else:
+                    s_device = f"dev_fallback_{uuid.uuid4().hex[:8]}"
+                
+                sess_rows.append({
+                    "session_id": sid,
+                    "account_id": acct,
+                    "org_id": org,
+                    "start_ts": s_ts,
+                    "auth_strength": rng.choice(auth_strengths),
+                    "ip": s_ip,
+                    "asn": chosen_asn,
+                    "device_fingerprint": s_device,
+                })
+        write_parquet(sess_path, pa.Table.from_pylist(sess_rows).cast(sess_schema))
 
     # batch generators
     def llm_batches() -> Iterable[pa.RecordBatch]:
@@ -653,9 +685,14 @@ def main() -> None:
                 asn_col.append(int(chosen_asn))
 
                 # map ASN to a synthetic IP from enrichment table (stable per asn row)
-                # build quick lookup by asn once (lazy init)
-                # (small overhead, fine)
-                idx = asns.index(chosen_asn)
+                try:
+                    idx = asns.index(chosen_asn)
+                except ValueError:
+                    # Fallback: chosen_asn not in list (shouldn't happen, but defensive)
+                    idx = rng.randint(0, len(asns) - 1) if asns else 0
+                # Clamp idx to valid enrichment range
+                enr_row_count = enr.num_rows if hasattr(enr, 'num_rows') else len(enr)
+                idx = max(0, min(idx, enr_row_count - 1))
                 ip.append(str(enr["ip"][idx].as_py()))
 
                 endpoint.append(rng.choice(endpoints))

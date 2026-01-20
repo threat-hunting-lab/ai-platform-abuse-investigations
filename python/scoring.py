@@ -284,7 +284,159 @@ def extract_rate_limit(csv_path: Path) -> Optional[Signal]:
     )
 
 
+def extract_ato_chain_candidates(csv_path: Path) -> Optional[Signal]:
+    """Extract ATO chain signal from rollup"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+
+    # Count high-risk accounts (risk_score >= 80)
+    high_risk = [r for r in rows if safe_int(r.get("risk_score", 0)) >= 80]
+    medium_risk = [r for r in rows if 50 <= safe_int(r.get("risk_score", 0)) < 80]
+    
+    total_compromised = len(rows)
+    high_risk_count = len(high_risk)
+    
+    # Score based on number of high-confidence ATO chains
+    s = clamp(high_risk_count / 20.0)  # saturate at 20 high-risk accounts
+    
+    rationale = f"Detected {total_compromised} ATO chain candidates ({high_risk_count} high-risk, {len(medium_risk)} medium-risk)"
+    evidence = {
+        "csv": str(csv_path),
+        "total_chains": total_compromised,
+        "high_risk_count": high_risk_count,
+        "medium_risk_count": len(medium_risk),
+    }
+    
+    return Signal(
+        id="ato_chain_detection",
+        title="Account Takeover Chain Detection",
+        weight=2.0,  # Very high weight - this is the primary signal
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_failed_login_bursts(csv_path: Path) -> Optional[Signal]:
+    """Extract failed login burst signal"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    # Look for high burst counts
+    top = pick_top(rows, key="failures_in_10m", n=1)[0]
+    burst_count = safe_int(top.get("failures_in_10m")) or 0
+    
+    s = clamp((burst_count - 6) / 24.0)  # 6 is minimum, saturate at 30
+    
+    rationale = f"Credential stuffing bursts detected (max {burst_count} failures in 10 minutes)"
+    evidence = {"csv": str(csv_path), "top_row": top, "max_burst": burst_count}
+    
+    return Signal(
+        id="failed_login_bursts",
+        title="Failed Login Bursts",
+        weight=1.0,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_new_asn_success(csv_path: Path) -> Optional[Signal]:
+    """Extract new ASN after failures signal"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    account_count = len(set(r.get("account_id") for r in rows if r.get("account_id")))
+    
+    s = clamp(account_count / 15.0)  # saturate at 15 accounts
+    
+    rationale = f"Successful logins from new ASNs following failed attempts ({account_count} accounts)"
+    evidence = {"csv": str(csv_path), "account_count": account_count, "total_events": len(rows)}
+    
+    return Signal(
+        id="new_asn_after_failures",
+        title="New ASN Success After Failures",
+        weight=1.5,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_mfa_manipulation(csv_path: Path) -> Optional[Signal]:
+    """Extract MFA device addition signal"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    account_count = len(set(r.get("account_id") for r in rows if r.get("account_id")))
+    
+    s = clamp(account_count / 10.0)  # saturate at 10 accounts
+    
+    rationale = f"MFA devices added post-compromise ({account_count} accounts)"
+    evidence = {"csv": str(csv_path), "account_count": account_count}
+    
+    return Signal(
+        id="mfa_manipulation",
+        title="MFA Device Manipulation",
+        weight=1.3,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_mailbox_abuse(csv_path: Path) -> Optional[Signal]:
+    """Extract mailbox rule creation signal"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    account_count = len(set(r.get("account_id") for r in rows if r.get("account_id")))
+    
+    s = clamp(account_count / 10.0)  # saturate at 10 accounts
+    
+    rationale = f"Suspicious mailbox rules created ({account_count} accounts)"
+    evidence = {"csv": str(csv_path), "account_count": account_count}
+    
+    return Signal(
+        id="mailbox_rule_abuse",
+        title="Mailbox Rule Abuse",
+        weight=1.2,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_oauth_abuse(csv_path: Path) -> Optional[Signal]:
+    """Extract OAuth consent grant signal"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    account_count = len(set(r.get("account_id") for r in rows if r.get("account_id")))
+    
+    s = clamp(account_count / 8.0)  # saturate at 8 accounts
+    
+    rationale = f"Suspicious OAuth consents granted ({account_count} accounts)"
+    evidence = {"csv": str(csv_path), "account_count": account_count}
+    
+    return Signal(
+        id="oauth_consent_abuse",
+        title="OAuth Consent Abuse",
+        weight=1.1,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
 EXTRACTORS = {
+    # CASE-0001 extractors
     "03_tenant_diversity_by_asn.csv": extract_cross_tenant_by_asn,
     "02_pct_hosting_vpn_by_account.csv": extract_hosting_vpn_concentration,
     "06_sync_org_spikes.csv": extract_synchronized_spikes,
@@ -292,6 +444,14 @@ EXTRACTORS = {
     "08_content_cluster_spread.csv": extract_content_cluster_spread,
     "09_policy_funnel_by_provider.csv": extract_policy_funnel,
     "11_rate_limit_summary.csv": extract_rate_limit,
+    
+    # CASE-0002 extractors
+    "0002_01_failed_login_bursts.csv": extract_failed_login_bursts,
+    "0002_02_new_asn_after_failures.csv": extract_new_asn_success,
+    "0002_03_mfa_device_added.csv": extract_mfa_manipulation,
+    "0002_05_mailbox_rule_creation.csv": extract_mailbox_abuse,
+    "0002_06_oauth_consent_grants.csv": extract_oauth_abuse,
+    "0002_07_ato_chain_candidates.csv": extract_ato_chain_candidates,
 }
 
 
