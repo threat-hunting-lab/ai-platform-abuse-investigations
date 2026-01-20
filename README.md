@@ -138,9 +138,13 @@ Security / Trust & Safety teams at AI platforms often need to:
 ```
 .
 ├── configs/
-│   └── case0001.yaml                          # Case configurations (YAML)
+│   ├── case0001.yaml                          # CASE-0001 configuration
+│   ├── case0002.yaml                          # CASE-0002 configuration
+│   └── case0003.yaml                          # CASE-0003 configuration
 ├── datasets/
 │   ├── output/                                # Generated Parquet tables (gitignored)
+│   ├── output_case0002/                       # CASE-0002 datasets (gitignored)
+│   ├── output_case0003/                       # CASE-0003 datasets (gitignored)
 │   └── schema.md                              # Dataset schema documentation
 ├── docs/                                      # Methodology and confidence rubric documentation
 ├── sql/                                       # Investigation queries (DuckDB SQL)
@@ -156,22 +160,42 @@ Security / Trust & Safety teams at AI platforms often need to:
 │   │   ├── 09_policy_funnel_by_provider.sql
 │   │   ├── 10_cluster_keys.sql
 │   │   └── 11_rate_limit_summary.sql
-│   └── case0002/                              # CASE-0002: ATO & identity abuse (8 queries)
+│   ├── case0002/                              # CASE-0002: ATO & identity abuse (8 queries)
+│   └── case0003/                              # CASE-0003: DNS triage (5 queries)
+│       ├── 0003_01_top_suspicious_domains.sql
+│       ├── 0003_02_domain_chain_clusters.sql
+│       ├── 0003_03_exposed_accounts.sql
+│       ├── 0003_04_heuristic_breakdown.sql
+│       └── 0003_99_rollup.sql
 ├── python/
-│   ├── generate_dataset.py                    # Synthetic data generator
+│   ├── generate_dataset.py                    # Synthetic data generator (base tables)
+│   ├── generate_identity_events.py            # Identity events generator (CASE-0002)
+│   ├── generate_dns_events.py                 # DNS events generator (CASE-0003)
 │   ├── run_queries.py                         # Runs SQL pack, exports artifacts, writes findings.json
 │   ├── scoring.py                             # Deterministic signal scoring, writes scoring.json
 │   └── render_report.py                       # Renders REPORT.md from findings + scoring
 ├── case_studies/
-│   └── CASE-0001-coordinated-influence/
+│   ├── CASE-0001-coordinated-influence/
+│   │   ├── README.md                          # Case overview (tracked)
+│   │   ├── artifacts/                         # Generated CSVs (gitignored)
+│   │   │   ├── 01_first_seen_hosting_asn.csv
+│   │   │   ├── 02_pct_hosting_vpn_by_account.csv
+│   │   │   └── ... (11 CSV files total)
+│   │   ├── findings.json                      # Investigation findings (generated, gitignored)
+│   │   ├── scoring.json                       # Signal scores (generated, gitignored)
+│   │   └── REPORT.md                          # Human-readable report (generated, gitignored)
+│   ├── CASE-0002-ato-identity-abuse/
+│   │   ├── README.md                          # Case overview (tracked)
+│   │   ├── artifacts/                         # Generated CSVs (8 files, gitignored)
+│   │   ├── findings.json                      # Generated, gitignored
+│   │   ├── scoring.json                       # Generated, gitignored
+│   │   └── REPORT.md                          # Generated, gitignored
+│   └── CASE-0003-dns-triage/
 │       ├── README.md                          # Case overview (tracked)
-│       ├── artifacts/                         # Generated CSVs (gitignored)
-│       │   ├── 01_first_seen_hosting_asn.csv
-│       │   ├── 02_pct_hosting_vpn_by_account.csv
-│       │   └── ... (11 CSV files total)
-│       ├── findings.json                      # Investigation findings (generated, gitignored)
-│       ├── scoring.json                       # Signal scores (generated, gitignored)
-│       └── REPORT.md                          # Human-readable report (generated, gitignored)
+│       ├── artifacts/                         # Generated CSVs (5 files, gitignored)
+│       ├── findings.json                      # Generated, gitignored
+│       ├── scoring.json                       # Generated, gitignored
+│       └── REPORT.md                          # Generated, gitignored
 ├── Makefile                                   # Build automation
 ├── requirements.txt                           # Python dependencies
 └── README.md                                  # This file
