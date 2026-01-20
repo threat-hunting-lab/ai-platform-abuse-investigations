@@ -73,7 +73,7 @@ This repo demonstrates an end-to-end workflow:
                                            │
    3. LOAD + QUERY                         ▼
    ┌──────────────────────────────────────────────┐
-   │     DuckDB + SQL Pack (CASE-0001: 11 queries)│
+   │     DuckDB + SQL Pack (5-11 queries per case)│
    │  ┌────────────────────────────────────────┐  │
    │  │ sql/case0001/                          │  │
    │  │ • 01_first_seen_hosting_asn.sql        │  │
@@ -244,14 +244,17 @@ make all
 
 **Or run steps individually with PowerShell (recommended for Windows):**
 
-> **Note:** Only `generate_dataset.py` supports `--config`. The other scripts (`run_queries.py`, `scoring.py`, `render_report.py`) use explicit CLI arguments.
+> **Note:** Generators support `--config` (generate_dataset.py, generate_identity_events.py, generate_dns_events.py). Pipeline scripts (run_queries.py, scoring.py, render_report.py) use explicit CLI arguments.
 
 ```powershell
-# Set variables first
+# Create artifacts directory
+mkdir .\artifacts -Force | Out-Null
+
+# Set variables
 $CASEDIR = ".\case_studies\CASE-0001-coordinated-influence"
 $SQLDIR  = ".\sql\case0001"
 $DATA    = ".\datasets\output"
-$DUCKDB  = ".\ai_abuse.duckdb"
+$DUCKDB  = ".\artifacts\ai_abuse.duckdb"
 
 # Run pipeline
 python .\python\generate_dataset.py --config .\configs\case0001.yaml
@@ -264,7 +267,7 @@ python .\python\render_report.py --case-dir $CASEDIR
 ```
 
 **Expected outputs:**
-- `ai_abuse.duckdb` (DuckDB database; generated, gitignored)
+- `artifacts/ai_abuse.duckdb` (DuckDB database; generated, gitignored)
 - `case_studies/CASE-0001-coordinated-influence/artifacts/*.csv` (11 CSV files; generated, gitignored)
 - `case_studies/CASE-0001-coordinated-influence/findings.json` (generated, gitignored)
 - `case_studies/CASE-0001-coordinated-influence/scoring.json` (generated, gitignored)
@@ -320,11 +323,14 @@ python .\python\render_report.py --case-dir $CASEDIR
 
 **Run ATO detection pipeline:**
 ```powershell
+# Create artifacts directory
+mkdir .\artifacts -Force | Out-Null
+
 # Set variables
 $CASEDIR = ".\case_studies\CASE-0002-ato-identity-abuse"
 $SQLDIR  = ".\sql\case0002"
 $DATA    = ".\datasets\output_case0002"
-$DUCKDB  = ".\ai_abuse_case0002.duckdb"
+$DUCKDB  = ".\artifacts\ai_abuse_case0002.duckdb"
 
 # Run queries
 python .\python\run_queries.py --duckdb $DUCKDB --data $DATA --sql $SQLDIR --case-dir $CASEDIR --strict
@@ -335,7 +341,7 @@ python .\python\render_report.py --case-dir $CASEDIR
 ```
 
 **Expected outputs:**
-- `ai_abuse_case0002.duckdb` (DuckDB database)
+- `artifacts/ai_abuse_case0002.duckdb` (DuckDB database)
 - `datasets/output_case0002/identity_events.parquet` (ATO attack chains)
 - `case_studies/CASE-0002-ato-identity-abuse/artifacts/*.csv` (8 CSV files)
 - `case_studies/CASE-0002-ato-identity-abuse/findings.json`
@@ -529,11 +535,11 @@ Malicious DNS patterns that emerge from heuristic analysis:
 
 To add a new case:
 
-1. Create a new YAML config in `configs/` (e.g., `case0003.yaml`)
+1. Create a new YAML config in `configs/` (e.g., `case0004.yaml`)
 2. Run `python\generate_dataset.py` with your config to generate data to `datasets/output/`
 3. Add/modify SQL queries in `sql/` for new detection patterns
 4. Add scoring rules in `python/scoring.py` for the new signals
-5. Create a case directory in `case_studies/` (e.g., `CASE-0003-...`)
+5. Create a case directory in `case_studies/` (e.g., `CASE-0004-...`)
 6. Re-run pipeline to generate `REPORT.md`
 
 **Implemented Cases:**
