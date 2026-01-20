@@ -56,8 +56,9 @@ This repo demonstrates an end-to-end workflow:
                                            │
    3. LOAD + QUERY                         ▼
    ┌──────────────────────────────────────────────┐
-   │          DuckDB + SQL Pack (11 queries)      │
+   │     DuckDB + SQL Pack (CASE-0001: 11 queries)│
    │  ┌────────────────────────────────────────┐  │
+   │  │ sql/case0001/                          │  │
    │  │ • 01_first_seen_hosting_asn.sql        │  │
    │  │ • 02_pct_hosting_vpn_by_account.sql    │  │
    │  │ • 03_tenant_diversity_by_asn.sql       │  │
@@ -126,17 +127,19 @@ Security / Trust & Safety teams at AI platforms often need to:
 │   └── schema.md                              # Dataset schema documentation
 ├── docs/                                      # Methodology and confidence rubric documentation
 ├── sql/                                       # Investigation queries (DuckDB SQL)
-│   ├── 01_first_seen_hosting_asn.sql
-│   ├── 02_pct_hosting_vpn_by_account.sql
-│   ├── 03_tenant_diversity_by_asn.sql
-│   ├── 04_device_reuse.sql
-│   ├── 05_burst_detection_asn.sql
-│   ├── 06_sync_org_spikes.sql
-│   ├── 07_template_reuse.sql
-│   ├── 08_content_cluster_spread.sql
-│   ├── 09_policy_funnel_by_provider.sql
-│   ├── 10_cluster_keys.sql
-│   └── 11_rate_limit_summary.sql
+│   ├── case0001/                              # CASE-0001: Coordinated influence (11 queries)
+│   │   ├── 01_first_seen_hosting_asn.sql
+│   │   ├── 02_pct_hosting_vpn_by_account.sql
+│   │   ├── 03_tenant_diversity_by_asn.sql
+│   │   ├── 04_device_reuse.sql
+│   │   ├── 05_burst_detection_asn.sql
+│   │   ├── 06_sync_org_spikes.sql
+│   │   ├── 07_template_reuse.sql
+│   │   ├── 08_content_cluster_spread.sql
+│   │   ├── 09_policy_funnel_by_provider.sql
+│   │   ├── 10_cluster_keys.sql
+│   │   └── 11_rate_limit_summary.sql
+│   └── case0002/                              # CASE-0002: ATO & identity abuse (8 queries)
 ├── python/
 │   ├── generate_dataset.py                    # Synthetic data generator
 │   ├── run_queries.py                         # Runs SQL pack, exports artifacts, writes findings.json
@@ -176,6 +179,8 @@ make install
 
 > **Note:** `pandas` + `numpy` are used by the DuckDB → DataFrame export path in `run_queries.py`.
 
+> **SQL Directory Change (2026-01-20):** CASE-0001 queries moved to `sql/case0001/` for consistency with CASE-0002. When running queries, use `--sql sql/case0001` for CASE-0001 or `--sql sql/case0002` for CASE-0002. The `--sql` parameter is now required.
+
 ---
 
 ## Quickstart (recommended)
@@ -195,7 +200,7 @@ make all
 ```powershell
 # Set variables first
 $CASEDIR = ".\case_studies\CASE-0001-coordinated-influence"
-$SQLDIR  = ".\sql"
+$SQLDIR  = ".\sql\case0001"
 $DATA    = ".\datasets\output"
 $DUCKDB  = ".\ai_abuse.duckdb"
 
@@ -422,4 +427,3 @@ Thanks for your interest.
 **Style:**
 - Keep logic explainable and deterministic
 - Favor small, reviewable commits
-

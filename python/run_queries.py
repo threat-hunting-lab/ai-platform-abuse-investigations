@@ -11,15 +11,12 @@ from typing import Dict, List, Tuple
 import duckdb
 
 
-REQUIRED_TABLES = [
-    "llm_requests",
-    "moderation_events",
-    "enrichment_ip",
-    "accounts",
-    "orgs",
-    "devices",
-    # optional: sessions, rate_limit_events, osint_observations
-]
+# Core dimensions required by all cases
+CORE_DIMS = ["enrichment_ip", "accounts", "orgs", "devices"]
+
+# Case-specific fact tables
+CASE_0001_REQUIRED = CORE_DIMS + ["llm_requests", "moderation_events"]
+CASE_0002_REQUIRED = CORE_DIMS + ["identity_events"]
 
 
 def utcnow_iso() -> str:
@@ -82,7 +79,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--duckdb", required=True, help="Path to duckdb file (e.g., ai_abuse.duckdb)")
     ap.add_argument("--data", required=True, help="Directory containing parquet outputs (e.g., datasets/output)")
-    ap.add_argument("--sql", default="sql", help="SQL directory (default: sql/)")
+    ap.add_argument("--sql", required=True, help="SQL directory (e.g., sql/case0001, sql/case0002)")
     ap.add_argument("--case-dir", required=True, help="Case dir (e.g., case_studies/CASE-0001-coordinated-influence)")
     ap.add_argument("--strict", action="store_true", help="Fail if required tables are missing")
     args = ap.parse_args()
@@ -110,8 +107,14 @@ def main() -> None:
         load_parquet_to_duckdb(con, tname, fpath)
         loaded_tables.append(tname)
 
+    # Determine required tables based on SQL directory (case-aware)
+    if "case0002" in str(sql_dir).lower():
+        required_tables = CASE_0002_REQUIRED
+    else:
+        required_tables = CASE_0001_REQUIRED
+    
     # Sanity checks
-    missing_required = [t for t in REQUIRED_TABLES if t not in loaded_tables]
+    missing_required = [t for t in required_tables if t not in loaded_tables]
     if missing_required and args.strict:
         raise RuntimeError(f"Missing required parquet tables: {missing_required}. Found: {loaded_tables}")
 
@@ -135,7 +138,11 @@ def main() -> None:
     # Run SQL files
     sql_files = discover_sql_files(sql_dir)
     if not sql_files:
-        raise FileNotFoundError(f"No SQL files found in {sql_dir}")
+        # List available case folders as a hint
+        sql_parent = sql_dir.parent if sql_dir.name.startswith("case") else sql_dir
+        case_folders = sorted([d.name for d in sql_parent.glob("case*") if d.is_dir()])
+        hint = f"\nAvailable SQL directories: {', '.join(case_folders)}" if case_folders else ""
+        raise FileNotFoundError(f"No SQL files found in {sql_dir}{hint}")
 
     artifacts: List[Dict] = []
     errors: List[Dict] = []

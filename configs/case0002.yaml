@@ -1,0 +1,191 @@
+meta:
+  case_id: CASE-0002
+  case_name: Identity Abuse (ATO + OAuth) (Synthetic)
+  notes: >
+    Fully synthetic dataset for public demo. No real orgs. Focus: account takeover chains, MFA enrollment, mailbox rule abuse, and OAuth consent grants.
+
+generation:
+  seed: 2026
+  total_rows: 1000000
+  output_dir: datasets/output
+  time_range_utc:
+    start: "2025-12-15T00:00:00Z"
+    end:   "2025-12-22T00:00:00Z"
+
+entities:
+  orgs:
+    count: 60
+    id_prefix: "org_"
+    size_distribution:
+      small: 0.60
+      medium: 0.30
+      large: 0.10
+
+  accounts:
+    count: 8000
+    id_prefix: "acct_"
+    accounts_per_org:
+      small_range: [30, 110]
+      medium_range: [90, 220]
+      large_range: [180, 520]
+
+  devices:
+    count: 12000
+    id_prefix: "dev_"
+    mix:
+      normal: 0.90
+      suspicious: 0.10
+    suspicious_device_traits:
+      headless_rate: 0.55
+      webdriver_rate: 0.40
+      low_entropy_ua_rate: 0.35
+
+infra:
+  asn_pool_sizes:
+    residential: 120
+    corporate: 60
+    hosting: 120
+    vpn: 90
+
+  baseline_asn_type_probs:
+    residential: 0.70
+    corporate: 0.18
+    hosting: 0.07
+    vpn: 0.05
+
+  provider_brand_buckets:
+    residential_isp: ["res_isp_a", "res_isp_b", "res_isp_c", "res_isp_d"]
+    enterprise_egress: ["corp_egress_a", "corp_egress_b"]
+    cloud_datacenter: ["cloud_a", "cloud_b", "cloud_c"]
+    vps_hosting: ["vps_a", "vps_b", "vps_c"]
+    vpn_service: ["vpn_a", "vpn_b", "vpn_c", "vpn_d"]
+
+models:
+  model_names: ["model_a", "model_b", "model_c"]
+  baseline_model_probs:
+    model_a: 0.55
+    model_b: 0.35
+    model_c: 0.10
+
+telemetry_schema:
+  language_fields:
+    baseline_primary_language_probs:
+      en: 0.55
+      pt: 0.12
+      es: 0.12
+      ru: 0.08
+      fr: 0.07
+      de: 0.06
+
+    baseline_ui_language_probs:
+      en: 0.62
+      pt: 0.10
+      es: 0.10
+      ru: 0.07
+      fr: 0.06
+      de: 0.05
+
+content:
+  topic_buckets: ["public_services_community", "civics", "local_events", "public_health", "policy_discussion"]
+  baseline_topic_probs:
+    public_services_community: 0.40
+    civics: 0.20
+    local_events: 0.15
+    public_health: 0.15
+    policy_discussion: 0.10
+
+  content_clusters:
+    count: 10
+    id_prefix: "CT-"
+
+  templates:
+    count: 10
+    id_prefix: "T-"
+
+moderation:
+  baseline_action_probs:
+    allow: 0.975
+    warn: 0.020
+    block: 0.005
+  
+  campaign_action_probs:
+    allow: 0.15
+    warn: 0.45
+    block: 0.40
+
+rate_limits:
+  enabled: true
+  baseline_rate_limit_prob: 0.0008
+  enforcement_actions: ["throttle", "temporary_block"]
+  enforcement_action_probs:
+    throttle: 0.80
+    temporary_block: 0.20
+
+sessions:
+  enabled: true
+
+osint:
+  enabled: true
+  platform_buckets: ["social_a", "forum_a", "video_a", "messaging_a"]
+  confidence_probs:
+    low: 0.60
+    medium: 0.30
+    high: 0.10
+  observation_rate_per_cluster: 0.20
+
+# NEW FOR CASE-0002:
+# Unified identity/email/OAuth activity table we will generate as: datasets/output/identity_events.parquet
+identity_events:
+  enabled: true
+  table_name: "identity_events"
+  
+  # Core parameters for generate_identity_events.py
+  compromised_fraction: 0.003
+  failure_burst:
+    min_failures: 8
+    max_failures: 30
+
+  # Baseline (non-attack) noise rates: small, so alerts aren't all-signal
+  baseline:
+    signin_failure_rate: 0.00015
+    mfa_add_rate: 0.00002
+    mailbox_rule_create_rate: 0.00001
+    oauth_consent_grant_rate: 0.00001
+
+  # Attack campaigns (ATO + optional OAuth)
+  campaigns:
+    - campaign_id: CAMP-ATO-001
+      enabled: true
+
+      accounts_touched_min: 40
+      accounts_touched_max: 140
+
+      # Password spray / stuffing style burst
+      failure_burst:
+        min_failures: 8
+        max_failures: 30
+        window_minutes: 10
+
+      # Chain probabilities
+      success_after_failures_prob: 0.45
+      mfa_enroll_after_success_prob: 0.70
+      mailbox_rule_after_mfa_prob: 0.55
+      oauth_consent_after_success_prob: 0.25
+
+      # Infra bias for attacker actions (hosting/vpn heavy)
+      attacker_asn_type_probs:
+        hosting: 0.65
+        vpn: 0.25
+        residential: 0.10
+
+      provider_bucket_focus: ["cloud_a", "vps_a", "vpn_a", "vpn_b"]
+      provider_focus_strength: 0.85
+
+      # Timing windows for chain steps
+      timing_minutes:
+        mfa_after_success_range: [1, 30]
+        mailbox_after_mfa_range: [1, 45]
+        oauth_after_success_range: [1, 60]
+
+# Keep legacy 'campaigns' empty for this case; the identity campaign above drives the story
+campaigns: []
