@@ -23,13 +23,23 @@ This repo demonstrates an end-to-end workflow:
 - Enforcement funnel (warn → throttle → block) at both infra + account levels
 - Reproducible SQL queries + exported artifacts + investigation report
 
-- **CASE-OSINT-0001 — CVE-2025-12420 (BodySnatcher / ServiceNow agentic AI auth weakness)**  
-  OSINT-to-hunting translation: affected/fixed versions, ATT&CK mapping, behavior-based hunts (user creation + role grants correlated to Virtual Agent / Now Assist sessions), and an intel report summarizing the trust-boundary failure patterns.
+**CASE-0002 — Account Takeover & Identity Abuse (Synthetic)**
+- Credential stuffing → compromise → persistence → abuse chain detection
+- Failed login bursts + success from new ASN correlation
+- MFA device manipulation + mailbox rule abuse
+- OAuth consent grants to malicious apps
+- Temporal attack chain analysis with ~24 compromised accounts per investigation
+
+**CASE-OSINT-0001 — CVE-2025-12420 (BodySnatcher / ServiceNow agentic AI auth weakness)**
+- OSINT-to-hunting translation: affected/fixed versions, ATT&CK mapping
+- Behavior-based detection (user creation + role grants correlated to Virtual Agent sessions)
+- Intel report summarizing trust-boundary failure patterns
+- No synthetic data - pure OSINT/threat intel case study
 
 
 ### Core Deliverables
 
-- **DuckDB SQL investigation pack** (`sql/`) - 11 queries for detecting coordination patterns
+- **DuckDB SQL investigation packs** (`sql/`) - Case-specific detection queries (CASE-0001: 11 queries, CASE-0002: 8 queries)
 - **Synthetic telemetry generator** (`python/generate_dataset.py`) - Configurable data generation
 - **Report builder** (`python/render_report.py`) - Human-readable investigation reports
 - **Deterministic scoring** (`python/scoring.py`) - Explainable signal weights and rationales
@@ -261,6 +271,40 @@ python .\python\render_report.py --case-dir $CASEDIR
 
 ---
 
+### CASE-0002 Quickstart
+
+**Generate dataset + identity events:**
+```powershell
+# Use helper script for two-phase generation
+.\scripts\gen_case.ps1 -Config "configs\case0002.yaml" -OutDir "datasets\output_case0002" -Clean
+```
+
+**Run ATO detection pipeline:**
+```powershell
+# Set variables
+$CASEDIR = ".\case_studies\CASE-0002-ato-identity-abuse"
+$SQLDIR  = ".\sql\case0002"
+$DATA    = ".\datasets\output_case0002"
+$DUCKDB  = ".\ai_abuse_case0002.duckdb"
+
+# Run queries
+python .\python\run_queries.py --duckdb $DUCKDB --data $DATA --sql $SQLDIR --case-dir $CASEDIR --strict
+
+# Score and report
+python .\python\scoring.py --case-dir $CASEDIR
+python .\python\render_report.py --case-dir $CASEDIR
+```
+
+**Expected outputs:**
+- `ai_abuse_case0002.duckdb` (DuckDB database)
+- `datasets/output_case0002/identity_events.parquet` (ATO attack chains)
+- `case_studies/CASE-0002-ato-identity-abuse/artifacts/*.csv` (8 CSV files)
+- `case_studies/CASE-0002-ato-identity-abuse/findings.json`
+- `case_studies/CASE-0002-ato-identity-abuse/scoring.json`
+- `case_studies/CASE-0002-ato-identity-abuse/REPORT.md`
+
+---
+
 ### Makefile Shortcuts
 
 Run the entire pipeline in one command:
@@ -299,6 +343,19 @@ Indicators of coordination that should emerge when multiple signals align:
 - **Synchronized bursts** (narrow time-window spikes)
 - **Similarity** (template reuse + content cluster alignment)
 - **Policy funnel concentration** (warn → throttle → block around the same infra/similarity clusters)
+
+---
+
+## What to look for in CASE-0002 (Account Takeover)
+
+Attack chain indicators that emerge when ATO succeeds:
+
+- **Failed login bursts** (6+ failures in 10-minute windows from credential stuffing/spraying)
+- **New ASN success** (successful authentication from new infrastructure immediately after failures)
+- **MFA manipulation** (device enrollment immediately after compromise)
+- **Persistence actions** (mailbox rules for data exfiltration, OAuth grants to malicious apps)
+- **Temporal correlation** (full attack chain completing within 24-48 hours)
+- **Compromised account concentration** (~24 accounts with complete ATO chains in the investigation)
 
 ---
 
@@ -381,15 +438,23 @@ Indicators of coordination that should emerge when multiple signals align:
 
 To add a new case:
 
-1. Create a new YAML config in `configs/` (e.g., `case0002.yaml`)
+1. Create a new YAML config in `configs/` (e.g., `case0003.yaml`)
 2. Run `python\generate_dataset.py` with your config to generate data to `datasets/output/`
 3. Add/modify SQL queries in `sql/` for new detection patterns
 4. Add scoring rules in `python/scoring.py` for the new signals
-5. Create a case directory in `case_studies/` (e.g., `CASE-0002-ato-identity-abuse/`)
+5. Create a case directory in `case_studies/` (e.g., `CASE-0003-...`)
 6. Re-run pipeline to generate `REPORT.md`
 
-**Planned Cases:**
-- **CASE-0002**: ATO / Identity abuse (MFA device add + inbox rules + new ASN + timing bursts)
+**Implemented Cases:**
+- **CASE-0001**: Coordinated influence campaigns (synthetic)
+- **CASE-0002**: Account takeover & identity abuse (synthetic)
+- **CASE-OSINT-0001**: CVE threat intelligence (ServiceNow)
+
+**Future Case Ideas:**
+- Cross-platform campaign tracking
+- API abuse & rate limit evasion
+- Synthetic media manipulation campaigns
+- Supply chain compromise detection
 
 Each case demonstrates different abuse patterns and detection methodologies.
 
