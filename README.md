@@ -30,6 +30,13 @@ This repo demonstrates an end-to-end workflow:
 - OAuth consent grants to malicious apps
 - Temporal attack chain analysis with ~24 compromised accounts per investigation
 
+**CASE-0003 — Suspicious DNS + Redirect Chains (Synthetic)**
+- DNS triage with explainable heuristics (suspicious TLD, keyword hit, entropy, rarity)
+- Redirect chain analysis via synthetic parent→child domain transitions
+- Pre-computed risk scores for SQL-friendly detection
+- Empirical evaluation with precision/recall against synthetic ground truth
+- Exposed account tracking across suspicious domain lookups
+
 **CASE-OSINT-0001 — CVE-2025-12420 (BodySnatcher / ServiceNow agentic AI auth weakness)**
 - OSINT-to-hunting translation: affected/fixed versions, ATT&CK mapping
 - Behavior-based detection (user creation + role grants correlated to Virtual Agent sessions)
@@ -39,7 +46,7 @@ This repo demonstrates an end-to-end workflow:
 
 ### Core Deliverables
 
-- **DuckDB SQL investigation packs** (`sql/`) - Case-specific detection queries (CASE-0001: 11 queries, CASE-0002: 8 queries)
+- **DuckDB SQL investigation packs** (`sql/`) - Case-specific detection queries (CASE-0001: 11 queries, CASE-0002: 8 queries, CASE-0003: 5 queries)
 - **Synthetic telemetry generator** (`python/generate_dataset.py`) - Configurable data generation
 - **Report builder** (`python/render_report.py`) - Human-readable investigation reports
 - **Deterministic scoring** (`python/scoring.py`) - Explainable signal weights and rationales
@@ -305,6 +312,46 @@ python .\python\render_report.py --case-dir $CASEDIR
 
 ---
 
+### CASE-0003 Quickstart
+
+**Generate dataset + DNS events:**
+```powershell
+# Step 1: Generate base dataset (accounts, orgs, devices, enrichment_ip)
+python .\python\generate_dataset.py --config .\configs\case0003.yaml --out .\datasets\output_case0003
+
+# Step 2: Generate DNS events (requires base dataset from Step 1)
+python .\python\generate_dns_events.py --config .\configs\case0003.yaml --data .\datasets\output_case0003
+```
+
+**Run DNS triage detection pipeline:**
+```powershell
+# Create artifacts directory
+mkdir .\artifacts -Force | Out-Null
+
+# Set variables
+$CASEDIR = ".\case_studies\CASE-0003-dns-triage"
+$SQLDIR  = ".\sql\case0003"
+$DATA    = ".\datasets\output_case0003"
+$DUCKDB  = ".\artifacts\ai_abuse_case0003.duckdb"
+
+# Run queries
+python .\python\run_queries.py --duckdb $DUCKDB --data $DATA --sql $SQLDIR --case-dir $CASEDIR --strict
+
+# Score and report
+python .\python\scoring.py --case-dir $CASEDIR
+python .\python\render_report.py --case-dir $CASEDIR
+```
+
+**Expected outputs:**
+- `artifacts/ai_abuse_case0003.duckdb` (DuckDB database)
+- `datasets/output_case0003/dns_events.parquet` (~2-3M DNS events)
+- `case_studies/CASE-0003-dns-triage/artifacts/*.csv` (5 CSV files)
+- `case_studies/CASE-0003-dns-triage/findings.json`
+- `case_studies/CASE-0003-dns-triage/scoring.json`
+- `case_studies/CASE-0003-dns-triage/REPORT.md`
+
+---
+
 ### Makefile Shortcuts
 
 Run the entire pipeline in one command:
@@ -356,6 +403,18 @@ Attack chain indicators that emerge when ATO succeeds:
 - **Persistence actions** (mailbox rules for data exfiltration, OAuth grants to malicious apps)
 - **Temporal correlation** (full attack chain completing within 24-48 hours)
 - **Compromised account concentration** (~24 accounts with complete ATO chains in the investigation)
+
+---
+
+## What to look for in CASE-0003 (DNS Triage)
+
+Malicious DNS patterns that emerge from heuristic analysis:
+
+- **High-risk domains** (score ≥ 5: multiple heuristics triggered simultaneously)
+- **Redirect chains** (parent domain → child domain transitions with escalating risk scores)
+- **Account exposure** (accounts touching 5+ distinct suspicious domains)
+- **Empirical metrics** (precision/recall against synthetic ground truth for detection quality validation)
+- **Heuristic breakdown** (which detection rules fire most often, score distribution analysis)
 
 ---
 
@@ -448,6 +507,7 @@ To add a new case:
 **Implemented Cases:**
 - **CASE-0001**: Coordinated influence campaigns (synthetic)
 - **CASE-0002**: Account takeover & identity abuse (synthetic)
+- **CASE-0003**: DNS triage + redirect chains (synthetic)
 - **CASE-OSINT-0001**: CVE threat intelligence (ServiceNow)
 
 **Future Case Ideas:**
@@ -455,6 +515,7 @@ To add a new case:
 - API abuse & rate limit evasion
 - Synthetic media manipulation campaigns
 - Supply chain compromise detection
+- DNS exposure → ATO correlation (CASE-0003 + CASE-0002 integration)
 
 Each case demonstrates different abuse patterns and detection methodologies.
 

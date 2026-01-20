@@ -435,6 +435,54 @@ def extract_oauth_abuse(csv_path: Path) -> Optional[Signal]:
     )
 
 
+def extract_dns_triage_rollup(csv_path: Path) -> Optional[Signal]:
+    """Extract DNS triage summary from rollup (precision/recall + flagged rate)"""
+    rows = load_csv_rows(csv_path)
+    if not rows or len(rows) == 0:
+        return None
+    
+    row = rows[0]  # Rollup is single-row summary
+    
+    precision = safe_float(row.get("precision"))
+    recall = safe_float(row.get("recall"))
+    flagged_events = safe_int(row.get("flagged_events")) or 0
+    total_events = safe_int(row.get("total_dns_events")) or 1
+    
+    flagged_rate = flagged_events / total_events if total_events > 0 else 0.0
+    
+    # Score based on detection quality (if precision/recall available)
+    if precision is not None and recall is not None:
+        # F1-like score
+        if (precision + recall) > 0:
+            f1 = 2 * (precision * recall) / (precision + recall)
+            s = clamp(f1)
+        else:
+            s = 0.0
+        rationale = f"DNS triage detection quality: precision={precision:.3f}, recall={recall:.3f}, flagged_rate={flagged_rate:.3f}"
+    else:
+        # Fallback: just use flagged rate
+        s = clamp(flagged_rate * 2.0)  # boost to 0-1 range
+        rationale = f"DNS triage flagged {flagged_events}/{total_events} events ({flagged_rate:.3f})"
+    
+    evidence = {
+        "csv": str(csv_path),
+        "precision": precision,
+        "recall": recall,
+        "flagged_events": flagged_events,
+        "total_events": total_events,
+        "flagged_rate": flagged_rate,
+    }
+    
+    return Signal(
+        id="dns_triage_detection",
+        title="DNS Triage Detection Quality",
+        weight=1.5,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
 EXTRACTORS = {
     # CASE-0001 extractors
     "03_tenant_diversity_by_asn.csv": extract_cross_tenant_by_asn,
@@ -452,6 +500,9 @@ EXTRACTORS = {
     "0002_05_mailbox_rule_creation.csv": extract_mailbox_abuse,
     "0002_06_oauth_consent_grants.csv": extract_oauth_abuse,
     "0002_07_ato_chain_candidates.csv": extract_ato_chain_candidates,
+    
+    # CASE-0003 extractors
+    "0003_99_rollup.csv": extract_dns_triage_rollup,
 }
 
 
