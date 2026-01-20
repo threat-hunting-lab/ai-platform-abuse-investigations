@@ -161,6 +161,14 @@ Security / Trust & Safety teams at AI platforms often need to:
 │   │   ├── 10_cluster_keys.sql
 │   │   └── 11_rate_limit_summary.sql
 │   ├── case0002/                              # CASE-0002: ATO & identity abuse (8 queries)
+│   │   ├── 0002_01_failed_login_bursts.sql
+│   │   ├── 0002_02_new_asn_after_failures.sql
+│   │   ├── 0002_03_mfa_device_added.sql
+│   │   ├── 0002_04_success_after_mfa.sql
+│   │   ├── 0002_05_mailbox_rule_creation.sql
+│   │   ├── 0002_06_oauth_consent_grants.sql
+│   │   ├── 0002_07_ato_chain_candidates.sql
+│   │   └── 0002_99_ato_rollup.sql
 │   └── case0003/                              # CASE-0003: DNS triage (5 queries)
 │       ├── 0003_01_top_suspicious_domains.sql
 │       ├── 0003_02_domain_chain_clusters.sql
