@@ -462,7 +462,6 @@ Malicious DNS patterns that emerge from heuristic analysis:
 
 **Privacy compliance by default**
 - No real user data, organization names, or platform identifiers
-- Safe to share in interviews, portfolios, and public repositories
 - Eliminates GDPR/CCPA/data handling concerns
 
 **Reproducible ground truth for validation**
@@ -523,11 +522,6 @@ Malicious DNS patterns that emerge from heuristic analysis:
 - Each case is a documented hypothesis about abuse patterns
 - Config serves as "threat model specification"
 - Easy to create case variants (CASE-0002, CASE-0003) for comparison
-
-**Interview-friendly demonstrations**
-- Modify config → re-run pipeline → show detection impact
-- Explains your thought process: "Here's what I expected to find"
-- Makes the "planted ground truth" concept tangible
 
 ---
 
