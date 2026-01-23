@@ -54,7 +54,7 @@ This repo demonstrates an end-to-end workflow:
 
 ### Core Deliverables
 
-- **DuckDB SQL investigation packs** (`sql/`) - Case-specific detection queries (CASE-0001: 11 queries, CASE-0002: 8 queries, CASE-0003: 5 queries)
+- **DuckDB SQL investigation packs** (`sql/`) - Case-specific detection queries (CASE-0001: 11 queries, CASE-0002: 8 queries, CASE-0003: 5 queries,CASE-0004: 7 queries)
 - **Synthetic telemetry generator** (`python/generate_dataset.py`) - Configurable data generation
 - **Report builder** (`python/render_report.py`) - Human-readable investigation reports
 - **Deterministic scoring** (`python/scoring.py`) - Explainable signal weights and rationales
@@ -615,12 +615,6 @@ To add a new case:
 - **CASE-0004**: K8s resource hijacking via API tokens (synthetic)
 - **CASE-OSINT-0001**: CVE threat intelligence (ServiceNow)
 
-**Future Case Ideas:**
-- Cross-platform campaign tracking
-- API abuse & rate limit evasion
-- Synthetic media manipulation campaigns
-- Supply chain compromise detection
-- DNS exposure → ATO correlation (CASE-0003 + CASE-0002 integration)
 
 Each case demonstrates different abuse patterns and detection methodologies.
 
