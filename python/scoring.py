@@ -483,6 +483,165 @@ def extract_dns_triage_rollup(csv_path: Path) -> Optional[Signal]:
     )
 
 
+def extract_unusual_pod_creation(csv_path: Path) -> Optional[Signal]:
+    """Extract unusual K8s pod creation patterns"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    # Count service accounts with anomaly scores
+    high_anomaly = [r for r in rows if safe_float(r.get("anomaly_score", 0)) >= 4]
+    total_accounts = len(rows)
+    
+    s = clamp(len(high_anomaly) / 15.0)  # saturate at 15 accounts
+    
+    rationale = f"Unusual pod creation patterns detected ({len(high_anomaly)} accounts with anomaly_score >= 4)"
+    evidence = {"csv": str(csv_path), "high_anomaly_count": len(high_anomaly), "total_accounts": total_accounts}
+    
+    return Signal(
+        id="unusual_pod_creation",
+        title="Unusual Pod Creation Patterns",
+        weight=0.8,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_non_standard_registries(csv_path: Path) -> Optional[Signal]:
+    """Extract non-standard container registry usage"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    # Count accounts using external registries with high risk scores
+    high_risk = [r for r in rows if safe_float(r.get("avg_risk_score", 0)) >= 4]
+    
+    s = clamp(len(high_risk) / 15.0)  # saturate at 15 accounts
+    
+    rationale = f"External registry usage detected ({len(high_risk)} accounts with avg_risk_score >= 4)"
+    evidence = {"csv": str(csv_path), "high_risk_count": len(high_risk), "total_rows": len(rows)}
+    
+    return Signal(
+        id="non_standard_registries",
+        title="Non-Standard Container Registries",
+        weight=1.0,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_resource_anomalies(csv_path: Path) -> Optional[Signal]:
+    """Extract K8s resource anomalies (high GPU/CPU usage)"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    # Count pods with high resource anomaly scores
+    critical_anomalies = [r for r in rows if safe_float(r.get("resource_anomaly_score", 0)) >= 5]
+    
+    s = clamp(len(critical_anomalies) / 20.0)  # saturate at 20 pods
+    
+    rationale = f"Resource anomalies detected ({len(critical_anomalies)} pods with sustained high GPU/CPU usage)"
+    evidence = {"csv": str(csv_path), "critical_count": len(critical_anomalies), "total_pods": len(rows)}
+    
+    return Signal(
+        id="resource_anomalies",
+        title="K8s Resource Anomalies",
+        weight=1.2,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_mining_pool_egress(csv_path: Path) -> Optional[Signal]:
+    """Extract mining pool connections (DEFINITIVE signal)"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    # Mining pool connections are definitive - all rows should have confidence_score=10
+    pod_count = len(set(r.get("pod_id") for r in rows if r.get("pod_id")))
+    total_connections = len(rows)
+    
+    # This is a definitive signal - score should be very high
+    s = clamp(min(1.0, pod_count / 10.0))  # saturate at 10 pods
+    
+    rationale = f"CRITICAL: Mining pool connections detected ({pod_count} pods, {total_connections} connections) - DEFINITIVE indicator"
+    evidence = {
+        "csv": str(csv_path), 
+        "pod_count": pod_count, 
+        "total_connections": total_connections,
+        "alert_level": "CRITICAL"
+    }
+    
+    return Signal(
+        id="mining_pool_egress",
+        title="Mining Pool Connections (DEFINITIVE)",
+        weight=2.0,  # Highest weight - this is smoking gun evidence
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_service_account_abuse(csv_path: Path) -> Optional[Signal]:
+    """Extract service account abuse patterns"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    # Count service accounts with high abuse scores
+    high_abuse = [r for r in rows if safe_float(r.get("abuse_score", 0)) >= 5]
+    
+    s = clamp(len(high_abuse) / 15.0)  # saturate at 15 accounts
+    
+    rationale = f"Service account abuse detected ({len(high_abuse)} accounts with abuse_score >= 5)"
+    evidence = {"csv": str(csv_path), "high_abuse_count": len(high_abuse), "total_accounts": len(rows)}
+    
+    return Signal(
+        id="service_account_abuse",
+        title="Service Account Abuse",
+        weight=1.1,
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
+def extract_correlated_k8s_signals(csv_path: Path) -> Optional[Signal]:
+    """Extract correlated K8s signals (triple correlation: registry + GPU + mining)"""
+    rows = load_csv_rows(csv_path)
+    if not rows:
+        return None
+    
+    # Triple correlation should have confidence_score=10
+    high_confidence = [r for r in rows if safe_float(r.get("confidence_score", 0)) == 10]
+    pod_count = len(set(r.get("pod_id") for r in high_confidence if r.get("pod_id")))
+    
+    # Triple correlation is nearly definitive
+    s = clamp(min(1.0, pod_count / 10.0))  # saturate at 10 pods
+    
+    rationale = f"Triple correlation detected ({pod_count} pods: external registry + high GPU + mining traffic) - HIGH CONFIDENCE"
+    evidence = {
+        "csv": str(csv_path), 
+        "correlated_pod_count": pod_count, 
+        "total_signals": len(rows),
+        "confidence": "HIGH"
+    }
+    
+    return Signal(
+        id="correlated_k8s_signals",
+        title="Correlated K8s Attack Signals",
+        weight=2.5,  # Very high weight - triple correlation eliminates false positives
+        score_0_1=s,
+        rationale=rationale,
+        evidence=evidence,
+    )
+
+
 EXTRACTORS = {
     # CASE-0001 extractors
     "03_tenant_diversity_by_asn.csv": extract_cross_tenant_by_asn,
@@ -503,6 +662,14 @@ EXTRACTORS = {
     
     # CASE-0003 extractors
     "0003_99_rollup.csv": extract_dns_triage_rollup,
+    
+    # CASE-0004 extractors
+    "0004_01_unusual_pod_creation.csv": extract_unusual_pod_creation,
+    "0004_02_non_standard_registries.csv": extract_non_standard_registries,
+    "0004_03_resource_anomalies.csv": extract_resource_anomalies,
+    "0004_04_mining_pool_egress.csv": extract_mining_pool_egress,
+    "0004_05_service_account_abuse.csv": extract_service_account_abuse,
+    "0004_06_correlated_signals.csv": extract_correlated_k8s_signals,
 }
 
 

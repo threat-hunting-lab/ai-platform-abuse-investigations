@@ -37,6 +37,14 @@ This repo demonstrates an end-to-end workflow:
 - Empirical evaluation with precision/recall against synthetic ground truth
 - Exposed account tracking across suspicious domain lookups
 
+**CASE-0004 — K8s Resource Hijacking (Synthetic)**
+- API token abuse leading to unauthorized K8s pod creation
+- Cryptomining container deployment from public registries
+- GPU resource theft and sustained high utilization
+- Network egress to mining pools
+- Infrastructure-layer abuse correlation with identity compromise (CASE-0002)
+- Reproducible SQL queries + exported artifacts + investigation report
+
 **CASE-OSINT-0001 — CVE-2025-12420 (BodySnatcher / ServiceNow agentic AI auth weakness)**
 - OSINT-to-hunting translation: affected/fixed versions, ATT&CK mapping
 - Behavior-based detection (user creation + role grants correlated to Virtual Agent sessions)
@@ -140,11 +148,13 @@ Security / Trust & Safety teams at AI platforms often need to:
 ├── configs/
 │   ├── case0001.yaml                          # CASE-0001 configuration
 │   ├── case0002.yaml                          # CASE-0002 configuration
-│   └── case0003.yaml                          # CASE-0003 configuration
+│   ├── case0003.yaml                          # CASE-0003 configuration
+│   └── case0004.yaml                          # CASE-0004 configuration
 ├── datasets/
 │   ├── output/                                # Generated Parquet tables (gitignored)
 │   ├── output_case0002/                       # CASE-0002 datasets (gitignored)
 │   ├── output_case0003/                       # CASE-0003 datasets (gitignored)
+│   ├── output_case0004/                       # CASE-0004 datasets (gitignored)
 │   └── schema.md                              # Dataset schema documentation
 ├── docs/                                      # Methodology and confidence rubric documentation
 ├── sql/                                       # Investigation queries (DuckDB SQL)
@@ -169,16 +179,25 @@ Security / Trust & Safety teams at AI platforms often need to:
 │   │   ├── 0002_06_oauth_consent_grants.sql
 │   │   ├── 0002_07_ato_chain_candidates.sql
 │   │   └── 0002_99_ato_rollup.sql
-│   └── case0003/                              # CASE-0003: DNS triage (5 queries)
-│       ├── 0003_01_top_suspicious_domains.sql
-│       ├── 0003_02_domain_chain_clusters.sql
-│       ├── 0003_03_exposed_accounts.sql
-│       ├── 0003_04_heuristic_breakdown.sql
-│       └── 0003_99_rollup.sql
+│   ├── case0003/                              # CASE-0003: DNS triage (5 queries)
+│   │   ├── 0003_01_top_suspicious_domains.sql
+│   │   ├── 0003_02_domain_chain_clusters.sql
+│   │   ├── 0003_03_exposed_accounts.sql
+│   │   ├── 0003_04_heuristic_breakdown.sql
+│   │   └── 0003_99_rollup.sql
+│   └── case0004/                              # CASE-0004: K8s resource hijacking (7 queries)
+│       ├── 0004_01_unusual_pod_creation.sql
+│       ├── 0004_02_non_standard_registries.sql
+│       ├── 0004_03_resource_anomalies.sql
+│       ├── 0004_04_mining_pool_egress.sql
+│       ├── 0004_05_service_account_abuse.sql
+│       ├── 0004_06_correlated_signals.sql
+│       └── 0004_99_attack_chain_rollup.sql
 ├── python/
 │   ├── generate_dataset.py                    # Synthetic data generator (base tables)
 │   ├── generate_identity_events.py            # Identity events generator (CASE-0002)
 │   ├── generate_dns_events.py                 # DNS events generator (CASE-0003)
+│   ├── generate_k8s_events.py                 # K8s events generator (CASE-0004)
 │   ├── run_queries.py                         # Runs SQL pack, exports artifacts, writes findings.json
 │   ├── scoring.py                             # Deterministic signal scoring, writes scoring.json
 │   └── render_report.py                       # Renders REPORT.md from findings + scoring
@@ -390,6 +409,45 @@ python .\python\render_report.py --case-dir $CASEDIR
 
 ---
 
+### CASE-0004 Quickstart
+
+**Generate K8s telemetry:**
+```powershell
+# Single-phase generation (K8s audit logs, resource metrics, network flows)
+python .\python\generate_k8s_events.py --config .\configs\case0004.yaml --out .\datasets\output_case0004
+```
+
+**Run K8s abuse detection pipeline:**
+```powershell
+# Create artifacts directory
+mkdir .\artifacts -Force | Out-Null
+
+# Set variables
+$CASEDIR = ".\case_studies\CASE-0004-k8s-resource-hijacking"
+$SQLDIR  = ".\sql\case0004"
+$DATA    = ".\datasets\output_case0004"
+$DUCKDB  = ".\artifacts\ai_abuse_case0004.duckdb"
+
+# Run queries
+python .\python\run_queries.py --duckdb $DUCKDB --data $DATA --sql $SQLDIR --case-dir $CASEDIR --strict
+
+# Score and report
+python .\python\scoring.py --case-dir $CASEDIR
+python .\python\render_report.py --case-dir $CASEDIR
+```
+
+**Expected outputs:**
+- `artifacts/ai_abuse_case0004.duckdb` (DuckDB database)
+- `datasets/output_case0004/k8s_audit_logs.parquet` (~200K events)
+- `datasets/output_case0004/resource_metrics.parquet` (~150K samples)
+- `datasets/output_case0004/network_flows.parquet` (~100K flows)
+- `case_studies/CASE-0004-k8s-resource-hijacking/artifacts/*.csv` (7 CSV files)
+- `case_studies/CASE-0004-k8s-resource-hijacking/findings.json`
+- `case_studies/CASE-0004-k8s-resource-hijacking/scoring.json`
+- `case_studies/CASE-0004-k8s-resource-hijacking/REPORT.md`
+
+---
+
 ### Makefile Shortcuts
 
 Run the entire pipeline in one command:
@@ -453,6 +511,20 @@ Malicious DNS patterns that emerge from heuristic analysis:
 - **Account exposure** (accounts touching 5+ distinct suspicious domains)
 - **Empirical metrics** (precision/recall against synthetic ground truth for detection quality validation)
 - **Heuristic breakdown** (which detection rules fire most often, score distribution analysis)
+
+---
+
+## What to look for in CASE-0004 (K8s Resource Hijacking)
+
+Infrastructure-layer cryptomining indicators that emerge from K8s telemetry:
+
+- **Mining pool connections** (DEFINITIVE signal - connections to pool.supportxmr.com, nanopool.org, moneroocean.stream)
+- **Triple correlation** (external registry + high GPU + mining traffic = high confidence)
+- **Off-hours pod creation** (70% of malicious pods created outside business hours 9am-6pm)
+- **Resource saturation** (85-98% sustained GPU utilization vs. 40-75% for legitimate inference)
+- **External registries** (DockerHub, GHCR vs. internal gcr.io/company-project)
+- **Service account abuse** (compromised tokens used from external IPs)
+- **Expected detection:** >95% precision (mining pool query is definitive), >90% recall (catch 16-17 of 18 attack chains)
 
 ---
 
@@ -546,6 +618,7 @@ To add a new case:
 - **CASE-0001**: Coordinated influence campaigns (synthetic)
 - **CASE-0002**: Account takeover & identity abuse (synthetic)
 - **CASE-0003**: DNS triage + redirect chains (synthetic)
+- **CASE-0004**: K8s resource hijacking via API tokens (synthetic)
 - **CASE-OSINT-0001**: CVE threat intelligence (ServiceNow)
 
 **Future Case Ideas:**

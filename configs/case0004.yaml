@@ -1,0 +1,125 @@
+# CASE-0004: K8s Resource Hijacking via Compromised API Tokens
+# Attack chain: Stolen API token → K8s API access → Malicious pod creation → Cryptomining
+
+case_id: "CASE-0004"
+case_name: "k8s-resource-hijacking"
+description: "Detection of API token abuse leading to unauthorized K8s resource manipulation and cryptomining"
+
+# Time window for synthetic data generation
+time_window:
+  start: "2025-01-01T00:00:00Z"
+  end: "2025-01-08T00:00:00Z"  # 7 days
+
+# Row counts for synthetic telemetry tables
+row_counts:
+  k8s_audit_logs: 200000      # K8s API server audit events
+  pod_lifecycle: 50000        # Pod state transitions
+  resource_metrics: 150000    # CPU/GPU/memory usage samples (hourly per pod)
+  network_flows: 100000       # Egress connections from pods
+  container_images: 5000      # Container image pulls
+  rbac_events: 30000          # Service account auth/authz events
+
+# Attack campaign configuration
+attack_config:
+  # Number of compromised API tokens (from CASE-0002 credential theft)
+  compromised_tokens: 18
+  
+  # Malicious pod creation rate (per compromised token)
+  pods_per_token: 
+    min: 3
+    max: 8
+  
+  # Attack timing (when malicious pods are created)
+  attack_timing:
+    # Mix of business hours and off-hours
+    business_hours_pct: 30  # 30% during business hours (suspicious)
+    off_hours_pct: 70       # 70% off-hours (more suspicious)
+  
+  # Container image sources for malicious pods
+  malicious_registries:
+    - "docker.io"           # Public DockerHub (suspicious for prod)
+    - "ghcr.io"             # GitHub Container Registry
+    - "quay.io"             # Quay.io public registry
+  
+  # Cryptomining pool infrastructure
+  mining_pools:
+    - "pool.supportxmr.com:3333"
+    - "xmr-us-east1.nanopool.org:14433"
+    - "gulf.moneroocean.stream:10128"
+  
+  # Resource consumption patterns for malicious pods
+  resource_abuse:
+    gpu_utilization: 
+      min: 85
+      max: 98
+    cpu_cores:
+      min: 12
+      max: 16
+    memory_gb:
+      min: 24
+      max: 32
+  
+  # Network egress data volumes (GB per day per pod)
+  egress_volume_gb:
+    min: 0.5
+    max: 2.0
+
+# Benign baseline configuration
+benign_config:
+  # Normal namespaces in AI platform
+  namespaces:
+    - "inference-prod"
+    - "inference-staging" 
+    - "training-jobs"
+    - "batch-processing"
+    - "monitoring"
+    - "platform-services"
+  
+  # Legitimate container registries
+  legitimate_registries:
+    - "gcr.io/company-project"     # Internal GCR
+    - "internal-registry.company.com"
+  
+  # Normal pod creation patterns
+  normal_pod_creation:
+    business_hours_pct: 80  # Most pod creation during business hours
+    off_hours_pct: 20
+  
+  # Normal resource usage for inference pods
+  normal_resources:
+    gpu_utilization:
+      min: 40
+      max: 75
+    cpu_cores:
+      min: 4
+      max: 8
+    memory_gb:
+      min: 8
+      max: 16
+
+# Detection signal configuration
+detection_config:
+  # Thresholds for unusual pod creation
+  pod_creation_spike_threshold: 10  # 10+ pods in 1 hour window
+  
+  # Non-standard registry weight
+  external_registry_weight: 0.8
+  
+  # Resource anomaly thresholds
+  gpu_utilization_threshold: 80  # % utilization
+  cpu_spike_threshold: 14        # cores
+  
+  # Network egress thresholds
+  mining_pool_confidence: "high"  # Flag connections to known pools
+  unusual_egress_gb: 1.5          # GB per day
+  
+  # RBAC anomaly thresholds
+  cross_namespace_api_calls: 5    # Calls crossing namespace boundaries
+  permission_denied_spike: 10     # 403 errors indicating enumeration
+
+# Ground truth labels (for evaluation)
+ground_truth:
+  total_malicious_pods: 108       # 18 tokens × avg 6 pods each
+  total_compromised_tokens: 18
+  true_positive_threshold: 0.90   # Aim for 90%+ recall
+  false_positive_tolerance: 0.05  # Keep FP rate under 5%
