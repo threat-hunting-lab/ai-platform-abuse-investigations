@@ -1,0 +1,166 @@
+# CASE-0005: Model Weight Exfiltration via Insider Access
+# Scenario: Departing researcher systematically downloads model weights,
+#           training configs, and research notebooks before resignation,
+#           staging data through personal cloud storage.
+
+case_id: "CASE-0005"
+title: "Model Weight Exfiltration via Insider Access"
+description: >
+  Detects insider threat patterns where employees with legitimate access
+  to model weight repositories escalate their access breadth and volume
+  prior to departure, staging proprietary AI assets for exfiltration
+  through personal cloud storage or removable media.
+
+# --- Time window ---
+time_window:
+  start: "2025-11-01T00:00:00Z"
+  end: "2025-11-30T23:59:59Z"
+  duration_days: 30
+
+# --- Population ---
+population:
+  total_employees: 200
+  teams:
+    - name: "frontier-research"
+      size: 30
+      repo_access: ["frontier-v4-weights", "frontier-v3-weights", "training-configs", "eval-harness", "research-notebooks"]
+    - name: "applied-ml"
+      size: 25
+      repo_access: ["applied-models", "fine-tuning-configs", "eval-harness", "api-serving"]
+    - name: "safety"
+      size: 20
+      repo_access: ["safety-evals", "rlhf-configs", "frontier-v4-weights", "alignment-research"]
+    - name: "infrastructure"
+      size: 25
+      repo_access: ["infra-configs", "k8s-manifests", "api-serving", "monitoring"]
+    - name: "product"
+      size: 20
+      repo_access: ["api-serving", "product-configs", "eval-harness"]
+    - name: "security"
+      size: 15
+      repo_access: ["security-tools", "audit-configs", "monitoring"]
+    - name: "other"
+      size: 65
+      repo_access: ["docs", "onboarding"]
+
+# --- Model repositories (sensitivity tiers) ---
+repositories:
+  critical:
+    - id: "frontier-v4-weights"
+      description: "Current frontier model weights (700B params)"
+      avg_file_size_gb: 45
+      sensitivity: "critical"
+    - id: "frontier-v3-weights"
+      description: "Previous generation model weights"
+      avg_file_size_gb: 30
+      sensitivity: "critical"
+    - id: "training-configs"
+      description: "Hyperparameters, data mix ratios, RLHF configs"
+      avg_file_size_gb: 0.5
+      sensitivity: "critical"
+  high:
+    - id: "rlhf-configs"
+      description: "RLHF reward model weights and configs"
+      avg_file_size_gb: 8
+      sensitivity: "high"
+    - id: "safety-evals"
+      description: "Safety evaluation datasets and benchmarks"
+      avg_file_size_gb: 2
+      sensitivity: "high"
+    - id: "research-notebooks"
+      description: "Experimental notebooks and findings"
+      avg_file_size_gb: 0.3
+      sensitivity: "high"
+    - id: "alignment-research"
+      description: "Alignment and interpretability research"
+      avg_file_size_gb: 1
+      sensitivity: "high"
+  medium:
+    - id: "fine-tuning-configs"
+      description: "Customer fine-tuning pipeline configs"
+      avg_file_size_gb: 0.2
+      sensitivity: "medium"
+    - id: "eval-harness"
+      description: "Model evaluation framework"
+      avg_file_size_gb: 0.5
+      sensitivity: "medium"
+    - id: "applied-models"
+      description: "Production model serving artifacts"
+      avg_file_size_gb: 5
+      sensitivity: "medium"
+  low:
+    - id: "api-serving"
+      description: "API layer code and configs"
+      avg_file_size_gb: 0.1
+      sensitivity: "low"
+    - id: "infra-configs"
+      description: "Infrastructure configuration"
+      avg_file_size_gb: 0.05
+      sensitivity: "low"
+    - id: "docs"
+      description: "Documentation"
+      avg_file_size_gb: 0.01
+      sensitivity: "low"
+
+# --- Benign access patterns ---
+benign_behavior:
+  access_frequency: "1-5 repos per day per user"
+  business_hours_pct: 0.85  # 85% of access during business hours
+  download_volume_daily_gb: 0.5  # typical daily download volume
+  repo_breadth_weekly: 3  # distinct repos accessed per week
+
+# --- Malicious campaigns ---
+campaigns:
+  - id: "exfil-alpha"
+    description: "Senior researcher departing to competitor, systematic model weight theft"
+    actor_team: "frontier-research"
+    actor_count: 1
+    timeline:
+      reconnaissance_start: "2025-11-05"  # starts browsing repos outside normal scope
+      escalation_start: "2025-11-12"      # begins downloading model weights
+      staging_start: "2025-11-18"         # uploads to personal cloud storage
+      final_exfil: "2025-11-25"           # bulk final download before last day
+      resignation_date: "2025-11-27"
+    behaviors:
+      - "access_repos_outside_normal_scope"
+      - "off_hours_model_downloads"
+      - "bulk_weight_downloads"
+      - "personal_cloud_uploads"
+      - "download_volume_spike"
+
+  - id: "exfil-beta"
+    description: "Applied ML engineer copying fine-tuning recipes and eval datasets"
+    actor_team: "applied-ml"
+    actor_count: 1
+    timeline:
+      reconnaissance_start: "2025-11-08"
+      escalation_start: "2025-11-15"
+      staging_start: "2025-11-20"
+      final_exfil: "2025-11-26"
+      resignation_date: "2025-11-28"
+    behaviors:
+      - "access_repos_outside_normal_scope"
+      - "bulk_config_downloads"
+      - "personal_cloud_uploads"
+      - "download_volume_spike"
+
+  - id: "exfil-gamma"
+    description: "Safety team member exfiltrating alignment research and safety evals"
+    actor_team: "safety"
+    actor_count: 1
+    timeline:
+      reconnaissance_start: "2025-11-10"
+      escalation_start: "2025-11-16"
+      staging_start: "2025-11-22"
+      final_exfil: "2025-11-28"
+      resignation_date: "2025-11-30"
+    behaviors:
+      - "access_repos_outside_normal_scope"
+      - "off_hours_model_downloads"
+      - "personal_cloud_uploads"
+
+# --- Row counts ---
+row_counts:
+  model_repo_access: 150000    # 30 days of access logs across 200 employees
+  file_transfers: 80000        # download/upload events
+  auth_sessions: 50000         # authentication events

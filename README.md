@@ -45,17 +45,25 @@ This repo demonstrates an end-to-end workflow:
 - Infrastructure-layer abuse correlation with identity compromise (CASE-0002)
 - Reproducible SQL queries + exported artifacts + investigation report
 
+**CASE-0005 — Model Weight Exfiltration (Synthetic)**
+- Insider threat detection for departing employees stealing model weights, training configs, and research IP
+- 3 independent campaigns: frontier researcher, applied ML engineer, safety team member
+- 7 detection queries: first-time repo access, off-hours activity, volume anomaly (z-score), breadth expansion, personal cloud staging, correlated multi-signal chain, attack chain rollup
+- Correlated query achieves 100% precision/recall at critical threshold
+- Synthetic telemetry: `model_repo_access.parquet`, `file_transfers.parquet`, `auth_sessions.parquet`
+
 **CASE-OSINT-0001 — CVE-2025-12420 (BodySnatcher / ServiceNow agentic AI auth weakness)**
 - OSINT-to-hunting translation: affected/fixed versions, ATT&CK mapping
 - Behavior-based detection (user creation + role grants correlated to Virtual Agent sessions)
 - Intel report summarizing trust-boundary failure patterns
 - No synthetic data - pure OSINT/threat intel case study
 
+---
 
 ### Core Deliverables
 
-- **DuckDB SQL investigation packs** (`sql/`) - Case-specific detection queries (CASE-0001: 11 queries, CASE-0002: 8 queries, CASE-0003: 5 queries,CASE-0004: 7 queries)
-- **Synthetic telemetry generator** (`python/generate_dataset.py`) - Configurable data generation
+- **DuckDB SQL investigation packs** (`sql/`) - Case-specific detection queries (CASE-0001: 11 queries, CASE-0002: 8 queries, CASE-0003: 5 queries, CASE-0004: 7 queries, CASE-0005: 7 queries)
+- **Synthetic telemetry generators** (`python/`) - Configurable data generation per case
 - **Report builder** (`python/render_report.py`) - Human-readable investigation reports
 - **Deterministic scoring** (`python/scoring.py`) - Explainable signal weights and rationales
 - **Methodology docs** (`docs/`) - Confidence rubric and investigation playbooks
@@ -149,12 +157,14 @@ Security / Trust & Safety teams at AI platforms often need to:
 │   ├── case0001.yaml                          # CASE-0001 configuration
 │   ├── case0002.yaml                          # CASE-0002 configuration
 │   ├── case0003.yaml                          # CASE-0003 configuration
-│   └── case0004.yaml                          # CASE-0004 configuration
+│   ├── case0004.yaml                          # CASE-0004 configuration
+│   └── case0005.yaml                          # CASE-0005 configuration
 ├── datasets/
 │   ├── output/                                # Generated Parquet tables (gitignored)
 │   ├── output_case0002/                       # CASE-0002 datasets (gitignored)
 │   ├── output_case0003/                       # CASE-0003 datasets (gitignored)
 │   ├── output_case0004/                       # CASE-0004 datasets (gitignored)
+│   ├── output_case0005/                       # CASE-0005 datasets (gitignored)
 │   └── schema.md                              # Dataset schema documentation
 ├── docs/                                      # Methodology and confidence rubric documentation
 ├── sql/                                       # Investigation queries (DuckDB SQL)
@@ -185,19 +195,28 @@ Security / Trust & Safety teams at AI platforms often need to:
 │   │   ├── 0003_03_exposed_accounts.sql
 │   │   ├── 0003_04_heuristic_breakdown.sql
 │   │   └── 0003_99_rollup.sql
-│   └── case0004/                              # CASE-0004: K8s resource hijacking (7 queries)
-│       ├── 0004_01_unusual_pod_creation.sql
-│       ├── 0004_02_non_standard_registries.sql
-│       ├── 0004_03_resource_anomalies.sql
-│       ├── 0004_04_mining_pool_egress.sql
-│       ├── 0004_05_service_account_abuse.sql
-│       ├── 0004_06_correlated_signals.sql
-│       └── 0004_99_attack_chain_rollup.sql
+│   ├── case0004/                              # CASE-0004: K8s resource hijacking (7 queries)
+│   │   ├── 0004_01_unusual_pod_creation.sql
+│   │   ├── 0004_02_non_standard_registries.sql
+│   │   ├── 0004_03_resource_anomalies.sql
+│   │   ├── 0004_04_mining_pool_egress.sql
+│   │   ├── 0004_05_service_account_abuse.sql
+│   │   ├── 0004_06_correlated_signals.sql
+│   │   └── 0004_99_attack_chain_rollup.sql
+│   └── case0005/                              # CASE-0005: Model weight exfiltration (7 queries)
+│       ├── 0005_01_first_access_sensitive_repos.sql
+│       ├── 0005_02_off_hours_model_access.sql
+│       ├── 0005_03_volume_anomaly_detection.sql
+│       ├── 0005_04_repo_breadth_anomaly.sql
+│       ├── 0005_05_personal_cloud_staging.sql
+│       ├── 0005_06_correlated_exfil_chain.sql
+│       └── 0005_99_attack_chain_rollup.sql
 ├── python/
 │   ├── generate_dataset.py                    # Synthetic data generator (base tables)
 │   ├── generate_identity_events.py            # Identity events generator (CASE-0002)
 │   ├── generate_dns_events.py                 # DNS events generator (CASE-0003)
 │   ├── generate_k8s_events.py                 # K8s events generator (CASE-0004)
+│   ├── generate_model_exfil.py                # Model exfiltration generator (CASE-0005)
 │   ├── run_queries.py                         # Runs SQL pack, exports artifacts, writes findings.json
 │   ├── scoring.py                             # Deterministic signal scoring, writes scoring.json
 │   └── render_report.py                       # Renders REPORT.md from findings + scoring
@@ -217,9 +236,21 @@ Security / Trust & Safety teams at AI platforms often need to:
 │   │   ├── findings.json                      # Generated, gitignored
 │   │   ├── scoring.json                       # Generated, gitignored
 │   │   └── REPORT.md                          # Generated, gitignored
-│   └── CASE-0003-dns-triage/
+│   ├── CASE-0003-dns-triage/
+│   │   ├── README.md                          # Case overview (tracked)
+│   │   ├── artifacts/                         # Generated CSVs (5 files, gitignored)
+│   │   ├── findings.json                      # Generated, gitignored
+│   │   ├── scoring.json                       # Generated, gitignored
+│   │   └── REPORT.md                          # Generated, gitignored
+│   ├── CASE-0004-k8s-resource-hijacking/
+│   │   ├── README.md                          # Case overview (tracked)
+│   │   ├── artifacts/                         # Generated CSVs (7 files, gitignored)
+│   │   ├── findings.json                      # Generated, gitignored
+│   │   ├── scoring.json                       # Generated, gitignored
+│   │   └── REPORT.md                          # Generated, gitignored
+│   └── CASE-0005-model-exfiltration/
 │       ├── README.md                          # Case overview (tracked)
-│       ├── artifacts/                         # Generated CSVs (5 files, gitignored)
+│       ├── artifacts/                         # Generated CSVs (7 files, gitignored)
 │       ├── findings.json                      # Generated, gitignored
 │       ├── scoring.json                       # Generated, gitignored
 │       └── REPORT.md                          # Generated, gitignored
@@ -448,6 +479,45 @@ python .\python\render_report.py --case-dir $CASEDIR
 
 ---
 
+### CASE-0005 Quickstart
+
+**Generate model exfiltration telemetry:**
+```powershell
+# Single-phase generation (repo access, file transfers, auth sessions)
+python .\python\generate_model_exfil.py --config .\configs\case0005.yaml --out .\datasets\output_case0005
+```
+
+**Run model exfiltration detection pipeline:**
+```powershell
+# Create artifacts directory
+mkdir .\artifacts -Force | Out-Null
+
+# Set variables
+$CASEDIR = ".\case_studies\CASE-0005-model-exfiltration"
+$SQLDIR  = ".\sql\case0005"
+$DATA    = ".\datasets\output_case0005"
+$DUCKDB  = ".\artifacts\ai_abuse_case0005.duckdb"
+
+# Run queries
+python .\python\run_queries.py --duckdb $DUCKDB --data $DATA --sql $SQLDIR --case-dir $CASEDIR --strict
+
+# Score and report
+python .\python\scoring.py --case-dir $CASEDIR
+python .\python\render_report.py --case-dir $CASEDIR
+```
+
+**Expected outputs:**
+- `artifacts/ai_abuse_case0005.duckdb` (DuckDB database)
+- `datasets/output_case0005/model_repo_access.parquet` (~12K events)
+- `datasets/output_case0005/file_transfers.parquet` (~8K events)
+- `datasets/output_case0005/auth_sessions.parquet` (~9K events)
+- `case_studies/CASE-0005-model-exfiltration/artifacts/*.csv` (7 CSV files)
+- `case_studies/CASE-0005-model-exfiltration/findings.json`
+- `case_studies/CASE-0005-model-exfiltration/scoring.json`
+- `case_studies/CASE-0005-model-exfiltration/REPORT.md`
+
+---
+
 ### Makefile Shortcuts
 
 Run the entire pipeline in one command:
@@ -528,6 +598,21 @@ Infrastructure-layer cryptomining indicators that emerge from K8s telemetry:
 
 ---
 
+## What to look for in CASE-0005 (Model Weight Exfiltration)
+
+Insider threat indicators that emerge across three independent campaigns:
+
+- **Reconnaissance phase** (sudden spike in first-time access to sensitive repos outside normal team scope)
+- **Off-hours shift** (ratio of after-hours to business-hours access increases sharply during escalation phase)
+- **Volume anomaly** (z-score spike on daily download volume — a researcher pulling 50GB when their baseline is 2GB/day)
+- **Breadth expansion** (number of distinct repos accessed per week far exceeds personal baseline — "shopping" behavior)
+- **Personal cloud staging** (uploads to Google Drive, Dropbox, OneDrive with model weight extensions: `.safetensors`, `.pt`, `.ckpt`, `.bin`)
+- **Correlated chain** (0005_06 fires when an employee triggers 3+ independent signals — 100% precision at critical threshold)
+- **Attack timeline** (0005_99 reconstructs the full recon → escalation → staging → exfil sequence per campaign)
+- **Expected detection:** All 3 campaigns caught by at least one signal within 48 hours of escalation phase start
+
+---
+
 ## Design Decisions
 
 ### Why synthetic-first?
@@ -601,11 +686,11 @@ Infrastructure-layer cryptomining indicators that emerge from K8s telemetry:
 
 To add a new case:
 
-1. Create a new YAML config in `configs/` (e.g., `case0004.yaml`)
-2. Run `python\generate_dataset.py` with your config to generate data to `datasets/output/`
+1. Create a new YAML config in `configs/` (e.g., `case0006.yaml`)
+2. Run the appropriate generator with your config to generate data
 3. Add/modify SQL queries in `sql/` for new detection patterns
 4. Add scoring rules in `python/scoring.py` for the new signals
-5. Create a case directory in `case_studies/` (e.g., `CASE-0004-...`)
+5. Create a case directory in `case_studies/` (e.g., `CASE-0006-...`)
 6. Re-run pipeline to generate `REPORT.md`
 
 **Implemented Cases:**
@@ -613,8 +698,8 @@ To add a new case:
 - **CASE-0002**: Account takeover & identity abuse (synthetic)
 - **CASE-0003**: DNS triage + redirect chains (synthetic)
 - **CASE-0004**: K8s resource hijacking via API tokens (synthetic)
+- **CASE-0005**: Model weight exfiltration by departing insiders (synthetic)
 - **CASE-OSINT-0001**: CVE threat intelligence (ServiceNow)
-
 
 Each case demonstrates different abuse patterns and detection methodologies.
 
