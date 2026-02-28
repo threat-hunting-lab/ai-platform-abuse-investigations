@@ -113,6 +113,20 @@ python python/scoring.py --case-dir case_studies/CASE-0005-model-exfiltration
 python python/render_report.py --case-dir case_studies/CASE-0005-model-exfiltration
 ```
 
+## Production Telemetry Mapping
+
+The synthetic tables in this case study are abstractions of real cloud-native log sources. In a production AWS/K8s environment:
+
+| Synthetic Table | Production Log Sources | Key Fields |
+|----------------|----------------------|------------|
+| `model_repo_access.parquet` | K8s Audit Logs (API server) + eBPF runtime telemetry (Falco/Tetragon) | `objectRef.resource`, `user.username`, `sourceIPs`, `verb`, `proc.name` |
+| `file_transfers.parquet` | AWS CloudTrail `PutObject`/`GetObject` data events + VPC Flow Logs (byte counts + destination IPs) | `userIdentity`, `requestParameters.bucketName`, `bytes`, `dstaddr` |
+| `auth_sessions.parquet` | Identity Provider logs (Okta/Entra ID) + Teleport session recordings | `actor.displayName`, `eventType`, `client.ipAddress`, `authenticationContext` |
+
+**Why this matters:** Standard user-space EDR can be disabled by a root-level insider. eBPF-based tools (Tetragon, Falco) operate at the Linux kernel layer, providing immutable syscall visibility even when the insider has root access — critical for monitoring researchers on training nodes. CloudTrail data events provide an authoritative ledger of every S3 API call, while VPC Flow Logs quantify exact egress volumes leaving the training subnet.
+
+The detection logic in `0005_06_correlated_exfil_chain.sql` would translate to a **stateful detection rule** in production: Event A (first-time sensitive repo access) transitions to a watched state; if Event B (volume anomaly) and Event C (personal cloud upload to a non-corporate AWS Account ID) occur within a 72-hour window on the same `user_id`, the rule fires at Critical severity.
+
 ## Future Extensions
 
 - **Temporal correlation with HR signals** — Integrate resignation dates, PIP notifications, and performance review timelines as contextual enrichment
